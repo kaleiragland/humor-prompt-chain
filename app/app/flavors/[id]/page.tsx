@@ -525,32 +525,35 @@ function CaptionsList({ flavorId }: { flavorId: number }) {
     fetchCaptions();
   }, [flavorId]);
 
-  if (loading) return null;
-  if (captions.length === 0) return null;
-
   return (
     <div className="mt-8">
       <button
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-2 text-lg font-bold mb-4 cursor-pointer"
       >
-        Captions ({captions.length})
+        Captions ({loading ? '...' : captions.length})
         <span className="text-sm text-slate-400">{expanded ? '▼' : '▶'}</span>
       </button>
       {expanded && (
-        <div className="space-y-2">
-          {captions.map((caption) => (
-            <div
-              key={caption.id}
-              className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm"
-            >
-              <p>{caption.content}</p>
-              <p className="text-xs text-slate-400 mt-1">
-                {new Date(caption.created_datetime_utc).toLocaleString()}
-              </p>
-            </div>
-          ))}
-        </div>
+        captions.length > 0 ? (
+          <div className="space-y-2">
+            {captions.map((caption) => (
+              <div
+                key={caption.id}
+                className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm"
+              >
+                <p>{caption.content}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {new Date(caption.created_datetime_utc).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-sm">
+            No captions have been generated for this flavor yet.
+          </div>
+        )
       )}
     </div>
   );
