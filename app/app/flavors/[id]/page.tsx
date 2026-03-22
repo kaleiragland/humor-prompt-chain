@@ -87,9 +87,12 @@ export default function FlavorDetailPage() {
 
   const handleUpdateFlavor = async () => {
     setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); setSaving(false); return; }
+    const userId = user.id;
     const { error } = await supabase
       .from('humor_flavors')
-      .update({ slug: editSlug, description: editDesc || null })
+      .update({ slug: editSlug, description: editDesc || null, modified_by_user_id: userId })
       .eq('id', flavorId);
     if (error) setError(error.message);
     else {
@@ -124,6 +127,9 @@ export default function FlavorDetailPage() {
     e.preventDefault();
     setSaving(true);
     setError('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); setSaving(false); return; }
+    const userId = user.id;
     const nextOrder = steps.length > 0 ? Math.max(...steps.map((s) => s.order_by)) + 1 : 1;
     const { error } = await supabase.from('humor_flavor_steps').insert({
       humor_flavor_id: flavorId,
@@ -136,6 +142,8 @@ export default function FlavorDetailPage() {
       llm_output_type_id: stepForm.llm_output_type_id ? Number(stepForm.llm_output_type_id) : null,
       humor_flavor_step_type_id: stepForm.humor_flavor_step_type_id ? Number(stepForm.humor_flavor_step_type_id) : null,
       description: stepForm.description || null,
+      created_by_user_id: userId,
+      modified_by_user_id: userId,
     });
     if (error) setError(error.message);
     else {
@@ -165,6 +173,9 @@ export default function FlavorDetailPage() {
     if (!editingStepId) return;
     setSaving(true);
     setError('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); setSaving(false); return; }
+    const userId = user.id;
     const { error } = await supabase
       .from('humor_flavor_steps')
       .update({
@@ -176,6 +187,7 @@ export default function FlavorDetailPage() {
         llm_output_type_id: stepForm.llm_output_type_id ? Number(stepForm.llm_output_type_id) : null,
         humor_flavor_step_type_id: stepForm.humor_flavor_step_type_id ? Number(stepForm.humor_flavor_step_type_id) : null,
         description: stepForm.description || null,
+        modified_by_user_id: userId,
       })
       .eq('id', editingStepId);
     if (error) setError(error.message);
@@ -200,12 +212,16 @@ export default function FlavorDetailPage() {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= steps.length) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return; }
+    const userId = user.id;
+
     const currentOrder = steps[idx].order_by;
     const swapOrder = steps[swapIdx].order_by;
 
     await Promise.all([
-      supabase.from('humor_flavor_steps').update({ order_by: swapOrder }).eq('id', steps[idx].id),
-      supabase.from('humor_flavor_steps').update({ order_by: currentOrder }).eq('id', steps[swapIdx].id),
+      supabase.from('humor_flavor_steps').update({ order_by: swapOrder, modified_by_user_id: userId }).eq('id', steps[idx].id),
+      supabase.from('humor_flavor_steps').update({ order_by: currentOrder, modified_by_user_id: userId }).eq('id', steps[swapIdx].id),
     ]);
     fetchData();
   };

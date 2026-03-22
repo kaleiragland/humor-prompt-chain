@@ -40,9 +40,14 @@ export default function FlavorsPage() {
     e.preventDefault();
     setSaving(true);
     setError('');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); setSaving(false); return; }
+    const userId = user.id;
     const { error } = await supabase.from('humor_flavors').insert({
       slug: newSlug,
       description: newDesc || null,
+      created_by_user_id: userId,
+      modified_by_user_id: userId,
     });
     if (error) {
       setError(error.message);
