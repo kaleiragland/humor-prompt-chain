@@ -5,17 +5,17 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
 interface HumorFlavor {
-  id: number;
-  slug: string;
+  id: string;
+  name: string;
   description: string | null;
-  created_datetime_utc: string;
+  created_at: string;
 }
 
 export default function FlavorsPage() {
   const [flavors, setFlavors] = useState<HumorFlavor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [newSlug, setNewSlug] = useState('');
+  const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +26,7 @@ export default function FlavorsPage() {
     const { data, error } = await supabase
       .from('humor_flavors')
       .select('*')
-      .order('created_datetime_utc', { ascending: false });
+      .order('created_at', { ascending: false });
     if (error) setError(error.message);
     else setFlavors(data || []);
     setLoading(false);
@@ -42,17 +42,15 @@ export default function FlavorsPage() {
     setError('');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError('Not authenticated'); setSaving(false); return; }
-    const userId = user.id;
     const { error } = await supabase.from('humor_flavors').insert({
-      slug: newSlug,
+      name: newName,
       description: newDesc || null,
-      created_by_user_id: userId,
-      modified_by_user_id: userId,
+      created_by: user.id,
     });
     if (error) {
       setError(error.message);
     } else {
-      setNewSlug('');
+      setNewName('');
       setNewDesc('');
       setShowCreate(false);
       fetchFlavors();
@@ -60,7 +58,7 @@ export default function FlavorsPage() {
     setSaving(false);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Delete this humor flavor? This will also affect its steps.')) return;
     const { error } = await supabase.from('humor_flavors').delete().eq('id', id);
     if (error) setError(error.message);
@@ -96,11 +94,11 @@ export default function FlavorsPage() {
         <form onSubmit={handleCreate} className="mb-6 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium mb-1">Slug *</label>
+              <label className="block text-sm font-medium mb-1">Name *</label>
               <input
                 type="text"
-                value={newSlug}
-                onChange={(e) => setNewSlug(e.target.value)}
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
                 required
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                 placeholder="e.g. dry-humor"
@@ -138,7 +136,7 @@ export default function FlavorsPage() {
                 href={`/app/flavors/${flavor.id}`}
                 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
               >
-                {flavor.slug}
+                {flavor.name}
               </Link>
               <button
                 onClick={() => handleDelete(flavor.id)}
@@ -152,7 +150,7 @@ export default function FlavorsPage() {
             </p>
             <div className="flex items-center justify-between">
               <span className="text-xs text-slate-400">
-                {new Date(flavor.created_datetime_utc).toLocaleDateString()}
+                {new Date(flavor.created_at).toLocaleDateString()}
               </span>
               <Link
                 href={`/app/flavors/${flavor.id}`}

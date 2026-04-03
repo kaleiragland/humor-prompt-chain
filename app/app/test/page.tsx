@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface HumorFlavor {
-  id: number;
-  slug: string;
+  id: string;
+  name: string;
 }
 
 interface ImageRow {
@@ -24,7 +24,7 @@ interface CaptionResult {
 export default function TestCaptionsPage() {
   const [flavors, setFlavors] = useState<HumorFlavor[]>([]);
   const [images, setImages] = useState<ImageRow[]>([]);
-  const [selectedFlavor, setSelectedFlavor] = useState<number | ''>('');
+  const [selectedFlavor, setSelectedFlavor] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<string>('');
   const [captions, setCaptions] = useState<CaptionResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ export default function TestCaptionsPage() {
     const fetchData = async () => {
       setLoading(true);
       const [flavorsRes, imagesRes] = await Promise.all([
-        supabase.from('humor_flavors').select('id, slug').order('slug'),
+        supabase.from('humor_flavors').select('id, name').order('name'),
         supabase
           .from('images')
           .select('id, url, image_description')
@@ -127,13 +127,13 @@ export default function TestCaptionsPage() {
               <label className="block text-sm font-medium mb-2">Humor Flavor (optional)</label>
               <select
                 value={selectedFlavor}
-                onChange={(e) => setSelectedFlavor(e.target.value ? Number(e.target.value) : '')}
+                onChange={(e) => setSelectedFlavor(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
               >
                 <option value="">Default (no specific flavor)</option>
                 {flavors.map((f) => (
                   <option key={f.id} value={f.id}>
-                    {f.slug}
+                    {f.name}
                   </option>
                 ))}
               </select>

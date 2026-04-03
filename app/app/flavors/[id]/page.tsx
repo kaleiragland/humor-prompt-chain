@@ -6,53 +6,41 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 interface HumorFlavor {
-  id: number;
-  slug: string;
+  id: string;
+  name: string;
   description: string | null;
-  created_datetime_utc: string;
+  created_at: string;
 }
 
 interface HumorFlavorStep {
-  id: number;
-  humor_flavor_id: number;
-  order_by: number;
-  llm_temperature: number | null;
-  llm_input_type_id: number | null;
-  llm_output_type_id: number | null;
-  llm_model_id: number | null;
-  humor_flavor_step_type_id: number | null;
-  llm_system_prompt: string | null;
-  llm_user_prompt: string | null;
-  description: string | null;
-  created_datetime_utc: string;
+  id: string;
+  flavor_id: string;
+  position: number;
+  title: string | null;
+  prompt: string | null;
+  created_at: string;
 }
 
 export default function FlavorDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const flavorId = Number(params.id);
+  const flavorId = params.id as string;
 
   const [flavor, setFlavor] = useState<HumorFlavor | null>(null);
   const [steps, setSteps] = useState<HumorFlavorStep[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editingFlavor, setEditingFlavor] = useState(false);
-  const [editSlug, setEditSlug] = useState('');
+  const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [showAddStep, setShowAddStep] = useState(false);
-  const [editingStepId, setEditingStepId] = useState<number | null>(null);
+  const [editingStepId, setEditingStepId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Step form state
   const [stepForm, setStepForm] = useState({
-    llm_system_prompt: '',
-    llm_user_prompt: '',
-    llm_temperature: '',
-    llm_model_id: '',
-    llm_input_type_id: '',
-    llm_output_type_id: '',
-    humor_flavor_step_type_id: '',
-    description: '',
+    title: '',
+    prompt: '',
   });
 
   const supabase = createClient();
@@ -63,15 +51,15 @@ export default function FlavorDetailPage() {
       supabase
         .from('humor_flavor_steps')
         .select('*')
-        .eq('humor_flavor_id', flavorId)
-        .order('order_by', { ascending: true }),
+        .eq('flavor_id', flavorId)
+        .order('position', { ascending: true }),
     ]);
 
     if (flavorRes.error) {
       setError(flavorRes.error.message);
     } else {
       setFlavor(flavorRes.data);
-      setEditSlug(flavorRes.data.slug);
+      setEditName(flavorRes.data.name);
       setEditDesc(flavorRes.data.description || '');
     }
 
@@ -87,12 +75,9 @@ export default function FlavorDetailPage() {
 
   const handleUpdateFlavor = async () => {
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError('Not authenticated'); setSaving(false); return; }
-    const userId = user.id;
     const { error } = await supabase
       .from('humor_flavors')
-      .update({ slug: editSlug, description: editDesc || null, modified_by_user_id: userId })
+      .update({ name: editName, description: editDesc || null })
       .eq('id', flavorId);
     if (error) setError(error.message);
     else {
@@ -104,7 +89,7 @@ export default function FlavorDetailPage() {
 
   const handleDeleteFlavor = async () => {
     if (!confirm('Delete this flavor and all its steps?')) return;
-    await supabase.from('humor_flavor_steps').delete().eq('humor_flavor_id', flavorId);
+    await supabase.from('humor_flavor_steps').delete().eq('flavor_id', flavorId);
     const { error } = await supabase.from('humor_flavors').delete().eq('id', flavorId);
     if (error) setError(error.message);
     else router.push('/app');
@@ -112,14 +97,8 @@ export default function FlavorDetailPage() {
 
   const resetStepForm = () => {
     setStepForm({
-      llm_system_prompt: '',
-      llm_user_prompt: '',
-      llm_temperature: '',
-      llm_model_id: '',
-      llm_input_type_id: '',
-      llm_output_type_id: '',
-      humor_flavor_step_type_id: '',
-      description: '',
+      title: '',
+      prompt: '',
     });
   };
 
@@ -127,23 +106,12 @@ export default function FlavorDetailPage() {
     e.preventDefault();
     setSaving(true);
     setError('');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError('Not authenticated'); setSaving(false); return; }
-    const userId = user.id;
-    const nextOrder = steps.length > 0 ? Math.max(...steps.map((s) => s.order_by)) + 1 : 1;
+    const nextPosition = steps.length > 0 ? Math.max(...steps.map((s) => s.position)) + 1 : 1;
     const { error } = await supabase.from('humor_flavor_steps').insert({
-      humor_flavor_id: flavorId,
-      order_by: nextOrder,
-      llm_system_prompt: stepForm.llm_system_prompt || null,
-      llm_user_prompt: stepForm.llm_user_prompt || null,
-      llm_temperature: stepForm.llm_temperature ? Number(stepForm.llm_temperature) : null,
-      llm_model_id: stepForm.llm_model_id ? Number(stepForm.llm_model_id) : null,
-      llm_input_type_id: stepForm.llm_input_type_id ? Number(stepForm.llm_input_type_id) : null,
-      llm_output_type_id: stepForm.llm_output_type_id ? Number(stepForm.llm_output_type_id) : null,
-      humor_flavor_step_type_id: stepForm.humor_flavor_step_type_id ? Number(stepForm.humor_flavor_step_type_id) : null,
-      description: stepForm.description || null,
-      created_by_user_id: userId,
-      modified_by_user_id: userId,
+      flavor_id: flavorId,
+      position: nextPosition,
+      title: stepForm.title || null,
+      prompt: stepForm.prompt || null,
     });
     if (error) setError(error.message);
     else {
@@ -157,14 +125,8 @@ export default function FlavorDetailPage() {
   const handleEditStep = (step: HumorFlavorStep) => {
     setEditingStepId(step.id);
     setStepForm({
-      llm_system_prompt: step.llm_system_prompt || '',
-      llm_user_prompt: step.llm_user_prompt || '',
-      llm_temperature: step.llm_temperature?.toString() || '',
-      llm_model_id: step.llm_model_id?.toString() || '',
-      llm_input_type_id: step.llm_input_type_id?.toString() || '',
-      llm_output_type_id: step.llm_output_type_id?.toString() || '',
-      humor_flavor_step_type_id: step.humor_flavor_step_type_id?.toString() || '',
-      description: step.description || '',
+      title: step.title || '',
+      prompt: step.prompt || '',
     });
   };
 
@@ -173,21 +135,11 @@ export default function FlavorDetailPage() {
     if (!editingStepId) return;
     setSaving(true);
     setError('');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError('Not authenticated'); setSaving(false); return; }
-    const userId = user.id;
     const { error } = await supabase
       .from('humor_flavor_steps')
       .update({
-        llm_system_prompt: stepForm.llm_system_prompt || null,
-        llm_user_prompt: stepForm.llm_user_prompt || null,
-        llm_temperature: stepForm.llm_temperature ? Number(stepForm.llm_temperature) : null,
-        llm_model_id: stepForm.llm_model_id ? Number(stepForm.llm_model_id) : null,
-        llm_input_type_id: stepForm.llm_input_type_id ? Number(stepForm.llm_input_type_id) : null,
-        llm_output_type_id: stepForm.llm_output_type_id ? Number(stepForm.llm_output_type_id) : null,
-        humor_flavor_step_type_id: stepForm.humor_flavor_step_type_id ? Number(stepForm.humor_flavor_step_type_id) : null,
-        description: stepForm.description || null,
-        modified_by_user_id: userId,
+        title: stepForm.title || null,
+        prompt: stepForm.prompt || null,
       })
       .eq('id', editingStepId);
     if (error) setError(error.message);
@@ -199,29 +151,29 @@ export default function FlavorDetailPage() {
     setSaving(false);
   };
 
-  const handleDeleteStep = async (id: number) => {
+  const handleDeleteStep = async (id: string) => {
     if (!confirm('Delete this step?')) return;
     const { error } = await supabase.from('humor_flavor_steps').delete().eq('id', id);
     if (error) setError(error.message);
     else fetchData();
   };
 
-  const handleMoveStep = async (stepId: number, direction: 'up' | 'down') => {
+  const handleMoveStep = async (stepId: string, direction: 'up' | 'down') => {
     const idx = steps.findIndex((s) => s.id === stepId);
     if (idx < 0) return;
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= steps.length) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError('Not authenticated'); return; }
-    const userId = user.id;
+    const currentPosition = steps[idx].position;
+    const swapPosition = steps[swapIdx].position;
 
-    const currentOrder = steps[idx].order_by;
-    const swapOrder = steps[swapIdx].order_by;
-
-    await Promise.all([
-      supabase.from('humor_flavor_steps').update({ order_by: swapOrder, modified_by_user_id: userId }).eq('id', steps[idx].id),
-      supabase.from('humor_flavor_steps').update({ order_by: currentOrder, modified_by_user_id: userId }).eq('id', steps[swapIdx].id),
+    // Delete both steps and re-insert with swapped positions to avoid unique constraint
+    const stepA = steps[idx];
+    const stepB = steps[swapIdx];
+    await supabase.from('humor_flavor_steps').delete().in('id', [stepA.id, stepB.id]);
+    await supabase.from('humor_flavor_steps').insert([
+      { flavor_id: flavorId, position: swapPosition, title: stepA.title, prompt: stepA.prompt },
+      { flavor_id: flavorId, position: currentPosition, title: stepB.title, prompt: stepB.prompt },
     ]);
     fetchData();
   };
@@ -231,83 +183,26 @@ export default function FlavorDetailPage() {
 
   const renderStepForm = (onSubmit: (e: React.FormEvent) => void, submitLabel: string) => (
     <form onSubmit={onSubmit} className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 mb-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
+          <label className="block text-sm font-medium mb-1">Title</label>
           <input
             type="text"
-            value={stepForm.description}
-            onChange={(e) => setStepForm({ ...stepForm, description: e.target.value })}
+            value={stepForm.title}
+            onChange={(e) => setStepForm({ ...stepForm, title: e.target.value })}
             className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+            placeholder="e.g. Celebrity Recognition"
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Model ID</label>
-            <input
-              type="number"
-              value={stepForm.llm_model_id}
-              onChange={(e) => setStepForm({ ...stepForm, llm_model_id: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Temperature</label>
-            <input
-              type="number"
-              step="0.1"
-              value={stepForm.llm_temperature}
-              onChange={(e) => setStepForm({ ...stepForm, llm_temperature: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-            />
-          </div>
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium mb-1">System Prompt</label>
+        <div>
+          <label className="block text-sm font-medium mb-1">Prompt</label>
           <textarea
-            value={stepForm.llm_system_prompt}
-            onChange={(e) => setStepForm({ ...stepForm, llm_system_prompt: e.target.value })}
-            rows={3}
+            value={stepForm.prompt}
+            onChange={(e) => setStepForm({ ...stepForm, prompt: e.target.value })}
+            rows={5}
             className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+            placeholder="Enter the prompt for this step..."
           />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium mb-1">User Prompt</label>
-          <textarea
-            value={stepForm.llm_user_prompt}
-            onChange={(e) => setStepForm({ ...stepForm, llm_user_prompt: e.target.value })}
-            rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-4 sm:col-span-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">Input Type ID</label>
-            <input
-              type="number"
-              value={stepForm.llm_input_type_id}
-              onChange={(e) => setStepForm({ ...stepForm, llm_input_type_id: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Output Type ID</label>
-            <input
-              type="number"
-              value={stepForm.llm_output_type_id}
-              onChange={(e) => setStepForm({ ...stepForm, llm_output_type_id: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Step Type ID</label>
-            <input
-              type="number"
-              value={stepForm.humor_flavor_step_type_id}
-              onChange={(e) => setStepForm({ ...stepForm, humor_flavor_step_type_id: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-            />
-          </div>
         </div>
       </div>
       <div className="flex gap-2 mt-4">
@@ -351,8 +246,8 @@ export default function FlavorDetailPage() {
           <div className="space-y-3">
             <input
               type="text"
-              value={editSlug}
-              onChange={(e) => setEditSlug(e.target.value)}
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-lg font-bold"
             />
             <input
@@ -381,12 +276,12 @@ export default function FlavorDetailPage() {
         ) : (
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-bold mb-1">{flavor.slug}</h1>
+              <h1 className="text-2xl font-bold mb-1">{flavor.name}</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {flavor.description || 'No description'}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                Created {new Date(flavor.created_datetime_utc).toLocaleDateString()}
+                Created {new Date(flavor.created_at).toLocaleDateString()}
               </p>
             </div>
             <div className="flex gap-2">
@@ -440,7 +335,7 @@ export default function FlavorDetailPage() {
                       {idx + 1}
                     </span>
                     <span className="font-medium">
-                      {step.description || `Step ${idx + 1}`}
+                      {step.title || `Step ${idx + 1}`}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -474,26 +369,12 @@ export default function FlavorDetailPage() {
                     </button>
                   </div>
                 </div>
-                <div className="grid gap-2 text-sm text-slate-500 dark:text-slate-400">
-                  {step.llm_system_prompt && (
-                    <div>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">System: </span>
-                      <span className="whitespace-pre-wrap">{step.llm_system_prompt}</span>
-                    </div>
-                  )}
-                  {step.llm_user_prompt && (
-                    <div>
-                      <span className="font-medium text-slate-700 dark:text-slate-300">User: </span>
-                      <span className="whitespace-pre-wrap">{step.llm_user_prompt}</span>
-                    </div>
-                  )}
-                  <div className="flex gap-4 text-xs">
-                    {step.llm_model_id && <span>Model: {step.llm_model_id}</span>}
-                    {step.llm_temperature !== null && <span>Temp: {step.llm_temperature}</span>}
-                    {step.llm_input_type_id && <span>Input Type: {step.llm_input_type_id}</span>}
-                    {step.llm_output_type_id && <span>Output Type: {step.llm_output_type_id}</span>}
+                {step.prompt && (
+                  <div className="text-sm text-slate-500 dark:text-slate-400">
+                    <span className="font-medium text-slate-700 dark:text-slate-300">Prompt: </span>
+                    <span className="whitespace-pre-wrap">{step.prompt}</span>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -507,39 +388,13 @@ export default function FlavorDetailPage() {
       )}
 
       {/* Captions produced by this flavor */}
-      <CaptionsList flavorId={flavorId} />
+      <CaptionsList />
     </div>
   );
 }
 
-function CaptionsList({ flavorId }: { flavorId: number }) {
-  const [captions, setCaptions] = useState<Array<{ id: string; content: string; created_datetime_utc: string }>>([]);
-  const [loading, setLoading] = useState(true);
+function CaptionsList() {
   const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    const fetchCaptions = async () => {
-      const supabase = createClient();
-      // Get captions that were produced via this flavor's prompt chain
-      const { data: responses } = await supabase
-        .from('llm_model_responses')
-        .select('caption_request_id')
-        .eq('humor_flavor_id', flavorId);
-
-      if (responses && responses.length > 0) {
-        const requestIds = [...new Set(responses.map((r) => r.caption_request_id))];
-        const { data: captionData } = await supabase
-          .from('captions')
-          .select('id, content, created_datetime_utc')
-          .in('caption_request_id', requestIds)
-          .order('created_datetime_utc', { ascending: false })
-          .limit(20);
-        setCaptions(captionData || []);
-      }
-      setLoading(false);
-    };
-    fetchCaptions();
-  }, [flavorId]);
 
   return (
     <div className="mt-8">
@@ -547,29 +402,13 @@ function CaptionsList({ flavorId }: { flavorId: number }) {
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-2 text-lg font-bold mb-4 cursor-pointer"
       >
-        Captions ({loading ? '...' : captions.length})
+        Captions
         <span className="text-sm text-slate-400">{expanded ? '▼' : '▶'}</span>
       </button>
       {expanded && (
-        captions.length > 0 ? (
-          <div className="space-y-2">
-            {captions.map((caption) => (
-              <div
-                key={caption.id}
-                className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm"
-              >
-                <p>{caption.content}</p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {new Date(caption.created_datetime_utc).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-6 text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-sm">
-            No captions have been generated for this flavor yet.
-          </div>
-        )
+        <div className="text-center py-6 text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-sm">
+          Captions will appear here once the generate-captions API is available.
+        </div>
       )}
     </div>
   );
