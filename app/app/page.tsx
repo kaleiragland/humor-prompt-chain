@@ -67,6 +67,60 @@ export default function FlavorsPage() {
     else fetchFlavors();
   };
 
+  const handleDuplicate = async (flavor: HumorFlavor) => {
+    const newSlug = prompt(`Enter a unique slug for the duplicated flavor:`, `${flavor.slug}-copy`);
+    if (!newSlug) return;
+    setError('');
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setError('Not authenticated'); return; }
+    const userId = user.id;
+
+    // Insert the new flavor
+    const { data: newFlavor, error: flavorError } = await supabase
+      .from('humor_flavors')
+      .insert({
+        slug: newSlug,
+        description: flavor.description,
+        created_by_user_id: userId,
+        modified_by_user_id: userId,
+      })
+      .select()
+      .single();
+
+    if (flavorError) { setError(flavorError.message); return; }
+
+    // Fetch the original steps
+    const { data: steps, error: stepsError } = await supabase
+      .from('humor_flavor_steps')
+      .select('*')
+      .eq('humor_flavor_id', flavor.id);
+
+    if (stepsError) { setError(stepsError.message); return; }
+
+    // Insert copies of the steps pointing to the new flavor
+    if (steps && steps.length > 0) {
+      const newSteps = steps.map((s) => ({
+        humor_flavor_id: newFlavor.id,
+        order_by: s.order_by,
+        llm_temperature: s.llm_temperature,
+        llm_input_type_id: s.llm_input_type_id,
+        llm_output_type_id: s.llm_output_type_id,
+        llm_model_id: s.llm_model_id,
+        humor_flavor_step_type_id: s.humor_flavor_step_type_id,
+        llm_system_prompt: s.llm_system_prompt,
+        llm_user_prompt: s.llm_user_prompt,
+        description: s.description,
+        created_by_user_id: userId,
+        modified_by_user_id: userId,
+      }));
+      const { error: insertError } = await supabase.from('humor_flavor_steps').insert(newSteps);
+      if (insertError) { setError(insertError.message); return; }
+    }
+
+    fetchFlavors();
+  };
+
   if (loading) return <div className="text-slate-500 dark:text-slate-400">Loading...</div>;
 
   return (
@@ -140,12 +194,20 @@ export default function FlavorsPage() {
               >
                 {flavor.slug}
               </Link>
-              <button
-                onClick={() => handleDelete(flavor.id)}
-                className="text-xs text-red-500 hover:text-red-400 cursor-pointer"
-              >
-                Delete
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDuplicate(flavor)}
+                  className="text-xs text-indigo-500 hover:text-indigo-400 cursor-pointer"
+                >
+                  Duplicate
+                </button>
+                <button
+                  onClick={() => handleDelete(flavor.id)}
+                  className="text-xs text-red-500 hover:text-red-400 cursor-pointer"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
               {flavor.description || 'No description'}
