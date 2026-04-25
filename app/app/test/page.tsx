@@ -86,7 +86,23 @@ export default function TestCaptionsPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        setError(`API error: ${res.status} — ${text}`);
+        let friendly = `API error (${res.status}). Please try again.`;
+        try {
+          const parsed = JSON.parse(text);
+          const apiMessage: string = parsed?.message || parsed?.error || '';
+          if (/system prompt missing/i.test(apiMessage)) {
+            friendly =
+              "This humor flavor isn't fully set up yet - one or more of its prompt steps is missing a system prompt. Please pick a different flavor, or go to the Flavors tab, open this flavor, and fill in the missing step.";
+          } else if (/steps not found|no steps/i.test(apiMessage)) {
+            friendly =
+              "This humor flavor has no steps configured yet, so captions can't be generated. Please pick a different flavor, or go to the Flavors tab, open this flavor, and add at least one step.";
+          } else if (apiMessage) {
+            friendly = `${apiMessage} — try a different flavor or check this flavor's steps in the Flavors tab.`;
+          }
+        } catch {
+          if (text) friendly = text;
+        }
+        setError(friendly);
         setGenerating(false);
         return;
       }
@@ -159,7 +175,7 @@ export default function TestCaptionsPage() {
 
             <button
               onClick={handleGenerate}
-              disabled={generating || !selectedImage}
+              disabled={generating}
               className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
             >
               {generating ? 'Generating Captions...' : 'Generate Captions'}

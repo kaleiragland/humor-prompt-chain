@@ -19,6 +19,7 @@ export default function FlavorsPage() {
   const [newDesc, setNewDesc] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   const supabase = createClient();
 
@@ -121,6 +122,15 @@ export default function FlavorsPage() {
     fetchFlavors();
   };
 
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredFlavors = normalizedSearch
+    ? flavors.filter(
+        (f) =>
+          f.slug.toLowerCase().includes(normalizedSearch) ||
+          (f.description || '').toLowerCase().includes(normalizedSearch),
+      )
+    : flavors;
+
   if (loading) return <div className="text-slate-500 dark:text-slate-400">Loading...</div>;
 
   return (
@@ -181,8 +191,23 @@ export default function FlavorsPage() {
         </form>
       )}
 
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search flavors by slug or description..."
+          className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+        />
+        {normalizedSearch && (
+          <p className="text-xs text-slate-400 mt-1">
+            {filteredFlavors.length} of {flavors.length} flavors match &quot;{search}&quot;
+          </p>
+        )}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {flavors.map((flavor) => (
+        {filteredFlavors.map((flavor) => (
           <div
             key={flavor.id}
             className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-300 dark:hover:border-indigo-700 transition"
@@ -230,6 +255,12 @@ export default function FlavorsPage() {
       {flavors.length === 0 && !showCreate && (
         <div className="text-center py-12 text-slate-400">
           No humor flavors yet. Create one to get started.
+        </div>
+      )}
+
+      {flavors.length > 0 && filteredFlavors.length === 0 && (
+        <div className="text-center py-12 text-slate-400">
+          No flavors match &quot;{search}&quot;.
         </div>
       )}
     </div>

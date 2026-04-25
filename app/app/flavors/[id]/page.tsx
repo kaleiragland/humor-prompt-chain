@@ -57,6 +57,30 @@ export default function FlavorDetailPage() {
 
   const supabase = createClient();
 
+  const stepFieldLabels: Record<string, string> = {
+    llm_input_type_id: 'Input Type ID',
+    llm_output_type_id: 'Output Type ID',
+    llm_model_id: 'Model ID',
+    llm_temperature: 'Temperature',
+    humor_flavor_step_type_id: 'Step Type ID',
+    llm_system_prompt: 'System Prompt',
+    llm_user_prompt: 'User Prompt',
+    description: 'Description',
+    slug: 'Slug',
+  };
+
+  const friendlyDbError = (message: string): string => {
+    const nullMatch = message.match(/null value in column "([^"]+)"/i);
+    if (nullMatch) {
+      const label = stepFieldLabels[nullMatch[1]] || nullMatch[1];
+      return `${label} is required. Please fill it in and try again.`;
+    }
+    if (/duplicate key|unique constraint/i.test(message)) {
+      return 'That value is already in use. Please choose a different one.';
+    }
+    return message;
+  };
+
   const fetchData = useCallback(async () => {
     const [flavorRes, stepsRes] = await Promise.all([
       supabase.from('humor_flavors').select('*').eq('id', flavorId).single(),
@@ -94,7 +118,7 @@ export default function FlavorDetailPage() {
       .from('humor_flavors')
       .update({ slug: editSlug, description: editDesc || null, modified_by_user_id: userId })
       .eq('id', flavorId);
-    if (error) setError(error.message);
+    if (error) setError(friendlyDbError(error.message));
     else {
       setEditingFlavor(false);
       fetchData();
@@ -106,7 +130,7 @@ export default function FlavorDetailPage() {
     if (!confirm('Delete this flavor and all its steps?')) return;
     await supabase.from('humor_flavor_steps').delete().eq('humor_flavor_id', flavorId);
     const { error } = await supabase.from('humor_flavors').delete().eq('id', flavorId);
-    if (error) setError(error.message);
+    if (error) setError(friendlyDbError(error.message));
     else router.push('/app');
   };
 
@@ -145,7 +169,7 @@ export default function FlavorDetailPage() {
       created_by_user_id: userId,
       modified_by_user_id: userId,
     });
-    if (error) setError(error.message);
+    if (error) setError(friendlyDbError(error.message));
     else {
       resetStepForm();
       setShowAddStep(false);
@@ -190,7 +214,7 @@ export default function FlavorDetailPage() {
         modified_by_user_id: userId,
       })
       .eq('id', editingStepId);
-    if (error) setError(error.message);
+    if (error) setError(friendlyDbError(error.message));
     else {
       setEditingStepId(null);
       resetStepForm();
@@ -202,7 +226,7 @@ export default function FlavorDetailPage() {
   const handleDeleteStep = async (id: number) => {
     if (!confirm('Delete this step?')) return;
     const { error } = await supabase.from('humor_flavor_steps').delete().eq('id', id);
-    if (error) setError(error.message);
+    if (error) setError(friendlyDbError(error.message));
     else fetchData();
   };
 
@@ -243,18 +267,24 @@ export default function FlavorDetailPage() {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Model ID</label>
+            <label className="block text-sm font-medium mb-1">
+              Model ID <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
+              required
               value={stepForm.llm_model_id}
               onChange={(e) => setStepForm({ ...stepForm, llm_model_id: e.target.value })}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Temperature</label>
+            <label className="block text-sm font-medium mb-1">
+              Temperature <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
+              required
               step="0.1"
               value={stepForm.llm_temperature}
               onChange={(e) => setStepForm({ ...stepForm, llm_temperature: e.target.value })}
@@ -282,27 +312,36 @@ export default function FlavorDetailPage() {
         </div>
         <div className="grid grid-cols-3 gap-4 sm:col-span-2">
           <div>
-            <label className="block text-sm font-medium mb-1">Input Type ID</label>
+            <label className="block text-sm font-medium mb-1">
+              Input Type ID <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
+              required
               value={stepForm.llm_input_type_id}
               onChange={(e) => setStepForm({ ...stepForm, llm_input_type_id: e.target.value })}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Output Type ID</label>
+            <label className="block text-sm font-medium mb-1">
+              Output Type ID <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
+              required
               value={stepForm.llm_output_type_id}
               onChange={(e) => setStepForm({ ...stepForm, llm_output_type_id: e.target.value })}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Step Type ID</label>
+            <label className="block text-sm font-medium mb-1">
+              Step Type ID <span className="text-red-500">*</span>
+            </label>
             <input
               type="number"
+              required
               value={stepForm.humor_flavor_step_type_id}
               onChange={(e) => setStepForm({ ...stepForm, humor_flavor_step_type_id: e.target.value })}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
